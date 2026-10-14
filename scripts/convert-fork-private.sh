@@ -37,7 +37,10 @@ echo "==> [2/4] mirror-copy content $slug -> $owner/$tmp"
 d="$(mktemp -d)"
 trap 'rm -rf "$d"' EXIT
 git clone --mirror "https://github.com/$slug.git" "$d/r.git"
-git -C "$d/r.git" push --mirror "https://github.com/$owner/$tmp.git"
+# heads+tags only — a full `--mirror` push also tries refs/pull/* and GitHub
+# rejects it with "deny updating a hidden ref" (any repo with PRs hits this)
+git -C "$d/r.git" push --prune --force "https://github.com/$owner/$tmp.git" \
+  "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*"
 
 echo "==> [3/4] delete public fork $slug"
 gh api -X DELETE "repos/$slug"
