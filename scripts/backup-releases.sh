@@ -11,6 +11,9 @@
 # Output layout:
 #   OUTDIR/REPO/<tag>/<asset files>
 #
+# Add-only: re-running never deletes or overwrites an existing backup file
+# (--skip-existing), so this is safe to run on a schedule.
+#
 # Reads go through api.github.com, which is often reachable even when
 # github.com (git) is blocked or flaky.
 set -euo pipefail
@@ -33,7 +36,7 @@ while IFS= read -r tag; do
   echo "==> $slug @ $tag"
   mkdir -p "$dest/$tag"
   # gh release download talks to api.github.com and grabs all assets for a tag
-  gh release download "$tag" -R "$slug" -D "$dest/$tag" 2>/dev/null \
+  gh release download "$tag" -R "$slug" -D "$dest/$tag" --skip-existing 2>/dev/null \
     || echo "    (no downloadable assets for $tag)"
 done <<< "$tags"
 
