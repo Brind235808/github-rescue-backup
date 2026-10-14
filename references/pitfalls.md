@@ -97,3 +97,22 @@ For pure archival, `git clone --mirror` is the robust choice.
 A sync that downloads a tarball and makes a single fresh commit every day
 **rewrites history** (force push). If you care about tags/branches, use a
 `--mirror` clone+push, not a tarball squash.
+
+## 10. `push --mirror` is rejected on repos with PR refs
+
+`git clone --mirror` also copies GitHub's hidden `refs/pull/*` refs. Pushing
+them back with `--mirror` fails:
+
+```
+! [remote rejected] refs/pull/1/head -> refs/pull/1/head (deny updating a hidden ref)
+error: failed to push some refs to '...'
+```
+
+Any upstream that ever had a pull request hits this (repos without PRs "pass",
+so the bug looks intermittent). Mirror-clone is fine — just don't *push* with
+`--mirror`. Push the namespaces you actually own, with pruning:
+
+```bash
+git -C repo.git push --prune --force <url> \
+  "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*"
+```
