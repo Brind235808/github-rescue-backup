@@ -86,8 +86,11 @@ jobs:
           for f in "${forks[@]}"; do
             git clone --quiet --mirror \
               "https://x-access-token:${GH_TOKEN}@github.com/you/${f}.git" "/tmp/$f.git"
-            git -C "/tmp/$f.git" push --quiet --mirror \
-              "https://x-access-token:${GH_TOKEN}@github.com/you/${f}-tmp.git"
+            # push heads+tags only: a full `--mirror` push also tries refs/pull/* and
+            # GitHub rejects it with "deny updating a hidden ref" (grown-up forks have PR refs)
+            git -C "/tmp/$f.git" push --quiet --prune --force \
+              "https://x-access-token:${GH_TOKEN}@github.com/you/${f}-tmp.git" \
+              "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*"
           done
 ```
 
