@@ -110,9 +110,59 @@ error: failed to push some refs to '...'
 
 Any upstream that ever had a pull request hits this (repos without PRs "pass",
 so the bug looks intermittent). Mirror-clone is fine — just don't *push* with
-`--mirror`. Push the namespaces you actually own, with pruning:
+`--mirror`. Push only the namespaces you own:
 
 ```bash
-git -C repo.git push --prune --force <url> \
+git -C repo.git push --force <url> \
   "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*"
 ```
+
+Add `--prune` **only** when the destination is a fresh, throwaway copy (e.g. the
+`REPO-tmp` in Job 4). Never prune a repo that is itself your backup — see #11.
+
+## 11. A backup sync must be append-only — `--prune` / `--force` can destroy it
+
+The whole point of a rescue mirror is that *you* never lose data, even if the
+upstream author does. Two flags break that guarantee outright:
+
+- **`--prune`** deletes refs in your repo that no longer exist upstream. The
+  author deletes a branch/tag (or empties the repo) → your backup loses it too.
+  This is exactly how "作者删库" propagates into your copy.
+- **blind `--force`** lets an upstream history rewrite (rebase / squash /
+  orphan-commit) replace your captured history; the old commits become
+  unreachable in *your* repo and are eventually garbage-collected.
+
+Correct shape — mirror-clone, then:
+
+1. **Never prune.** Branches/tags the upstream deleted stay in your copy.
+2. **Freeze before overwriting.** If the upstream head is *not* a descendant of
+   yours (a rewrite happened), first push your current head to an immutable tag,
+   *then* update the branch — both versions survive forever.
+3. **Tags are add-only.** Push tags *without* `--force`; a tag the upstream moved
+   keeps your original value.
+
+```bash
+git clone --mirror <upstream> u.git
+git -C u.git remote add mine <your-repo>
+git -C u.git fetch mine '+refs/heads/*:refs/remotes/mine/*'
+for b in $(git -C u.git for-each-ref --format='%(refname:short)' refs/heads); do
+  U=$(git -C u.git rev-parse "refs/heads/$b")
+  O=$(git -C u.git rev-parse -q --verify "refs/remotes/mine/$b" || true)
+  if [ -n "$O" ] && [ "$U" != "$O" ] && ! git -C u.git merge-base --is-ancestor "$O" "$U"; then
+    git -C u.git push <your-repo> "refs/remotes/mine/$b:refs/tags/archive-$b-$(date -u +%Y%m%d)-${O:0:8}"
+  fi
+  git -C u.git push --force <your-repo> "refs/heads/$b:refs/heads/$b"
+done
+git -C u.git push <your-repo> "refs/tags/*:refs/tags/*"   # add-only, no --force
+```
+
+Also **pin the upstream's immutable numeric id** and resolve `.full_name` every
+run:
+
+```bash
+cur=$(gh api "repositories/$pinned_id" --jq .full_name)
+```
+
+A repo that was deleted and re-registered under the same name gets a *different*
+id — detect the mismatch and refuse to push, so a name squatter can't overwrite
+your backup. The same lookup follows legitimate owner/name renames for free.
