@@ -109,6 +109,13 @@ runners do the syncing — your PC can be off, and (bonus) it bypasses a blocked
 flaky `github.com` on your own machine. Templates and the full rationale live in
 `references/cloud-sync.md`.
 
+A sync for a *backup* must be **append-only**: never `--prune`, freeze the old
+head before overwriting history, keep tags add-only, and pin the upstream's
+immutable numeric id — otherwise an upstream deletion or force-push propagates
+into your copy and defeats the whole point (see `pitfalls.md` #11). Capture
+Releases separately with the add-only template (D), and add a
+`if: failure()` issue alert so a broken sync never goes unnoticed.
+
 ## Hard-won rules (read before acting)
 
 1. **Tarball ≠ backup.** `export-ignore` silently empties snapshots. Clone.
@@ -123,3 +130,7 @@ flaky `github.com` on your own machine. Templates and the full rationale live in
 8. **Respect upstream licenses.** A private mirror for personal archival is
    normal; republishing someone's code publicly is not. Keep mirrors private
    unless the license allows otherwise.
+9. **A backup sync must be append-only.** `--prune` propagates upstream
+   deletions into your copy; a blind `--force` lets a history rewrite make your
+   old commits unreachable. Never prune, freeze the old head first, keep tags
+   add-only, and pin the upstream id (`pitfalls.md` #11).
