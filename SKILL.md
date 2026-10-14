@@ -60,7 +60,10 @@ Release assets are standalone binaries, not part of git history, so forks and
 ```
 
 Stores each release under `_backup/releases/<repo>/<tag>/` with the original
-asset names, plus a `manifest.json` (tag, asset, size, sha256).
+asset names, plus a `RELEASE_NOTES.md` (title, date, changelog body, asset
+list) — the changelog text lives only in the release object, so a `git clone`
+would miss it. Re-running is **add-only**: existing files are never overwritten
+or deleted.
 
 ## Job 3 — Snapshot source (belt-and-braces)
 
